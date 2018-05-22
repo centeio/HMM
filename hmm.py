@@ -56,29 +56,24 @@ class Model():
         for y in self.states:
             vit[0][y] = self._init_p[y] * self.prob_emit(y,current=obs[0])
             path[y] = [y]
-        print("obs",obs[0])
-        print("vit",vit)
-        print("path", path)
+
 
         for t in range(1, len(obs)):
             vit.append({})
-            newpath = {}
-            print("T",t,"/",len(obs))        
+            newpath = {}        
             for y in self.states:
-                test = [(vit[t-1][y0] * self.prob_trans(fromstate=y0, tostate=y) * self.prob_emit(state=y,prev=obs[t-1],current=obs[t]), y0) for y0 in self.states]
-                print("TESTE",test)
-                (prob, state) = max(test)
+                (prob, state) = max((vit[t-1][y0] * self.prob_trans(y0,y) * self.prob_emit(y,obs[t],obs[t-1]), y0) for y0 in self.states)
                 vit[t][y] = prob
+
+      
                 newpath[y] = path[state] + [y]     
 
             path = newpath
-            print("obs",obs[0])
-            print("vit",vit)
-            print("path", path)
-            return
+
         n = 0
         if len(obs)!=1:
             n = t
+
         (prob, state) = max((vit[n][y], y) for y in self.states)
         return (prob, path[state])
 
@@ -90,8 +85,7 @@ class Model():
         # t > 0
         
         for t in range(1, len(obs)):
-            fwd.append({})
-            print("T",t,"/",len(obs))     
+            fwd.append({})  
             for y in self.states:
                 fwd[t][y] = sum((fwd[t-1][y0] * self.prob_trans(fromstate=y0, tostate=y) * self.prob_emit(state=y,prev=obs[t-1], current=obs[t])) for y0 in self.states)
         
@@ -104,27 +98,64 @@ class Model():
     def set_trans_dict(self, dictionary):
         self._trans_dict = dictionary
 
+def intervals(path):
+    start = False
+    r=[]
+    for i in range(len(path)):
+        if(path[i]=='1'):
+            r.append(i)
+            start = True
+        if(start and path[i]=='9'):
+            r.append(i)
+            start = False
+
+    return list(zip(r[0::2],r[1::2]))
 
 if __name__ == "__main__":
     #train
     print("Training...")
-    # t = Trainer()
-    # t.train("./NC_000913_3.fasta", "./NC_000913_3.gb")
-    # t.persist("./trained.p")
-    t = Trainer.retrieve("./trained.p")
+    t = Trainer()
+    t.train("./input/train/NC_000913_3.fasta", "./input/train/NC_000913_3.gb")
+    t.persist("./trained.p")
+    #t = Trainer.retrieve("./trained.p")
     #create model
     m = Model()
     #setting trained info
     m.set_trans_dict(t.get_trans_dict())
     m.set_emit_dict(t.get_emit_dict())
-    coli = io.read_fasta(io.read_file("./NC_000913_3.fasta"))
-    #coli = "ACTAGACAAAATC"
-    coli = coli[:int(len(coli)/10)]
+
+
+    print("NC_000913_3 (same)...")
+    coli = io.read_fasta(io.read_file("./input/test/NC_000913_3.fasta"))
+    coli = coli[:1250]
     print("Viterbi...")
     prob, path = m.viterbi(coli)
-    print(prob, path)
-    
+    #print(prob, path)
+    print("GENES", intervals(path))
     print("Forward...")
     p = m.forward(coli)
-    print(p)
+    print("Probability",p)
+
+    print("CU928164.2 (likely)...")
+    coli = io.read_fasta(io.read_file("./input/test/CU928164.2.fasta"))
+    coli = coli[:1250]
+    print("Viterbi...")
+    prob, path = m.viterbi(coli)
+    #print(prob, path)
+    print("GENES", intervals(path))
+    print("Forward...")
+    p = m.forward(coli)
+    print("Probability",p)
+
+
+    print("FRDV01000033.1 (different)...")
+    coli = io.read_fasta(io.read_file("./input/test/FRDV01000033.1.fasta"))
+    coli = coli[:1250]
+    print("Viterbi...")
+    prob, path = m.viterbi(coli)
+    #print(prob, path)
+    print("GENES", intervals(path))
+    print("Forward...")
+    p = m.forward(coli)
+    print("Probability",p)
 
